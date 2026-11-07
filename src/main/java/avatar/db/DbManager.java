@@ -9,15 +9,14 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Properties;
+import javax.sql.DataSource;
 
-import org.apache.commons.dbutils.QueryRunner;
 import org.apache.log4j.Logger;
 
 public class DbManager {
@@ -25,81 +24,93 @@ public class DbManager {
     private static final Logger logger = Logger.getLogger(DbManager.class);
 
     private static DbManager instance = null;
-    private HikariDataSource hikariDataSource;
-    private String host;
-    private int port;
-    private String dbname;
-    private String username;
-    private String passeword;
-    private String driver;
-    private int maxConnections;
-    private int minConnections;
+    private DataSource dataSource;
+    private boolean springManaged;
 
-    public static DbManager getInstance() {
+    public static synchronized DbManager getInstance() {
         if (instance == null) {
             instance = new DbManager();
         }
         return instance;
     }
 
-    private DbManager() {
-        try {
-            FileInputStream input = new FileInputStream("database.properties");
-            Properties props = new Properties();
-            props.load(new InputStreamReader(input, StandardCharsets.UTF_8));
-            this.driver = props.getProperty("driver");
-            this.host = props.getProperty("host");
-            this.port = Integer.parseInt(props.getProperty("port"));
-            this.dbname = props.getProperty("dbname");
-            this.username = props.getProperty("username");
-            this.passeword = props.getProperty("passeword");
-            this.maxConnections = Integer.parseInt(props.getProperty("max_connection"));
-            this.minConnections = Integer.parseInt(props.getProperty("min_connection"));
-        } catch (IOException ex) {
-            logger.error("init ", ex);
+    /**
+     * Uses the DataSource created by Spring Boot. The pool is closed by Spring on shutdown.
+     */
+    public static synchronized void bind(DataSource dataSource) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("dataSource");
         }
+        DbManager manager = getInstance();
+        manager.dataSource = dataSource;
+        manager.springManaged = true;
+        logger.debug("DB Connection Pool is managed by Spring.");
+    }
 
+    private DbManager() {
     }
 
     public void start() {
-        if (this.hikariDataSource != null) {
-            logger.warn("DB Connection Pool has already been created.");
-        } else {
-            try {
-                HikariConfig config = new HikariConfig();
-                config.setJdbcUrl("jdbc:mysql://" + this.host + ":" + this.port + "/" + this.dbname);
-                config.setDriverClassName(this.driver);
-                config.setUsername(this.username);
-                config.setPassword(this.passeword);
-                config.setMinimumIdle(this.minConnections);
-                config.setMaximumPoolSize(this.maxConnections);
-                config.addDataSourceProperty("cachePrepStmts", "true");
-                config.addDataSourceProperty("prepStmtCacheSize", "250");
-                config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-
-                this.hikariDataSource = new HikariDataSource(config);
-                logger.debug("DB Connection Pool has created.");
-
-            } catch (Exception e) {
-                logger.error("DB Connection Pool Creation has failed.");
+        if (this.dataSource != null) {
+            logger.debug("DB Connection Pool is ready.");
+            return;
+        }
+        try {
+            Properties props = new Properties();
+            try (InputStreamReader reader = new InputStreamReader(
+                    new FileInputStream("database.properties"), StandardCharsets.UTF_8)) {
+                props.load(reader);
             }
+            String driver = props.getProperty("driver");
+            String host = props.getProperty("host");
+            int port = Integer.parseInt(props.getProperty("port"));
+            String dbname = props.getProperty("dbname");
+            String username = props.getProperty("username");
+            String password = props.containsKey("password")
+                    ? props.getProperty("password")
+                    : props.getProperty("passeword");
+            int maxConnections = Integer.parseInt(props.getProperty("max_connection"));
+            int minConnections = Integer.parseInt(props.getProperty("min_connection"));
+
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + dbname);
+            config.setDriverClassName(driver);
+            config.setUsername(username);
+            config.setPassword(password);
+            config.setMinimumIdle(minConnections);
+            config.setMaximumPoolSize(maxConnections);
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+
+            this.dataSource = new HikariDataSource(config);
+            logger.debug("DB Connection Pool has created.");
+        } catch (Exception e) {
+            logger.error("DB Connection Pool Creation has failed.", e);
         }
     }
 
     public void shutdown() {
+        if (springManaged) {
+            logger.debug("DB Connection Pool stays open until Spring shuts down.");
+            return;
+        }
         try {
-            if (this.hikariDataSource != null) {
-                this.hikariDataSource.close();
+            if (this.dataSource instanceof HikariDataSource hikariDataSource) {
+                hikariDataSource.close();
                 logger.debug("DB Connection Pool is shutting down.");
             }
-            this.hikariDataSource = null;
+            this.dataSource = null;
         } catch (Exception e) {
-            logger.warn("Error when shutting down DB Connection Pool");
+            logger.warn("Error when shutting down DB Connection Pool", e);
         }
     }
 
     public Connection getConnection() throws SQLException {
-        return this.hikariDataSource.getConnection();
+        if (this.dataSource == null) {
+            throw new SQLException("DB Connection Pool is not started");
+        }
+        return this.dataSource.getConnection();
     }
 
     public int executeUpdate(String sqlStatement, Object... params) {

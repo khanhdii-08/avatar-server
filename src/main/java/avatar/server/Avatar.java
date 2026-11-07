@@ -1,41 +1,26 @@
 package avatar.server;
 
-import avatar.model.GameData;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import static avatar.server.Utils.decodeMapItemFile;
-import static avatar.server.Utils.setTimeout;
-
-public class
-
-
-Avatar {
-
-
-    private static Thread T;
+public class Avatar {
 
     public static void main(String[] args) {
-        //Utils.decodeMapItemFile();
-        //Utils.readTreeInfo();
-        Avatar.start();
+        avatar.AvatarApplication.main(args);
     }
 
+    public static void printBanner() {
+        System.out.println("     _                      _                      ____                                      \n    / \\    __   __   __ _  | |_    __ _   _ __    / ___|    ___   _ __  __   __   ___   _ __ \n   / _ \\   \\ \\ / /  / _` | | __|  / _` | | '__|   \\___ \\   / _ \\ | '__| \\ \\ / /  / _ \\ | '__|\n  / ___ \\   \\ V /  | (_| | | |_  | (_| | | |       ___) | |  __/ | |     \\ V /  |  __/ | |   \n /_/   \\_\\   \\_/    \\__,_|  \\__|  \\__,_| |_|      |____/   \\___| |_|      \\_/    \\___| |_|   \n                                                                                             ");
+    }
+
+    /**
+     * Starts the socket server without Spring. The Spring Boot entry point is {@code avatar.AvatarApplication}.
+     */
     public static void start() {
-
-        //getPart insert sql item
-
-//        for (int i = 2000; i < 6839; i++) {
-//           byte[] dat = Avatar.getFile("res/p/part_"+i+".dat");
-//            Utils.decodeItemDataFile(dat,true);
-//         }
-
-
-        T = new Thread(() -> {
-            System.out.println("     _                      _                      ____                                      \n    / \\    __   __   __ _  | |_    __ _   _ __    / ___|    ___   _ __  __   __   ___   _ __ \n   / _ \\   \\ \\ / /  / _` | | __|  / _` | | '__|   \\___ \\   / _ \\ | '__| \\ \\ / /  / _ \\ | '__|\n  / ___ \\   \\ V /  | (_| | | |_  | (_| | | |       ___) | |  __/ | |     \\ V /  |  __/ | |   \n /_/   \\_\\   \\_/    \\__,_|  \\__|  \\__,_| |_|      |____/   \\___| |_|      \\_/    \\___| |_|   \n                                                                                             ");
+        Thread serverThread = new Thread(() -> {
+            printBanner();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("Shutdown Server!");
                 ServerManager.stop();
@@ -43,7 +28,7 @@ Avatar {
             ServerManager.init();
             ServerManager.start();
         });
-        T.start();
+        serverThread.start();
     }
 
     /**

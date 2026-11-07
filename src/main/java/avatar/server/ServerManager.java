@@ -54,8 +54,42 @@ public class ServerManager {
     protected static boolean start;
     protected static int id;
     private static boolean debug;
+    private static boolean configured;
+    private static volatile boolean stopping;
+
+    public static void applyConfig(short port,
+                                   String cityName,
+                                   boolean active,
+                                   boolean debug,
+                                   String notify,
+                                   int bigImgVersion,
+                                   int partVersion,
+                                   int bigItemImgVersion,
+                                   int itemTypeVersion,
+                                   int itemVersion,
+                                   int objectVersion,
+                                   String resHDPath,
+                                   String resMediumPath) {
+        ServerManager.port = port;
+        ServerManager.cityName = cityName;
+        ServerManager.active = active;
+        ServerManager.debug = debug;
+        ServerManager.notify = notify;
+        ServerManager.bigImgVersion = bigImgVersion;
+        ServerManager.partVersion = partVersion;
+        ServerManager.bigItemImgVersion = bigItemImgVersion;
+        ServerManager.itemTypeVersion = itemTypeVersion;
+        ServerManager.itemVersion = itemVersion;
+        ServerManager.objectVersion = objectVersion;
+        ServerManager.resHDPath = resHDPath;
+        ServerManager.resMediumPath = resMediumPath;
+        ServerManager.configured = true;
+    }
 
     private static void loadConfigFile() {
+        if (configured) {
+            return;
+        }
         try {
             FileInputStream input = new FileInputStream(new File("config.properties"));
             Properties props = new Properties();
@@ -107,7 +141,7 @@ public class ServerManager {
         }
     }
 
-    protected static void init() {
+    public static void init() {
         ServerManager.start = false;
         DbManager.getInstance().start();
         loadConfigFile();
@@ -220,7 +254,10 @@ public class ServerManager {
     }
 
 
-    protected static void start() {
+    public static void start() {
+        if (stopping) {
+            return;
+        }
         System.out.println("Start socket port = " + ServerManager.port);
         try {
             ServerManager.clients = new ArrayList<>();
@@ -257,11 +294,12 @@ public class ServerManager {
         }
     }
 
-    protected static void stop() {
+    public static void stop() {
+        stopping = true;
         if (ServerManager.start) {
             System.out.println("--->[ CLOSE ]<---");
-            close();
             ServerManager.start = false;
+            close();
             System.gc();
         }
     }

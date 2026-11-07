@@ -1,0 +1,45 @@
+# Defaults for the Avatar game server.
+# config.properties and database.properties in the working directory override these values.
+
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/avatar_2x
+    username: root
+    password: ""
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: AvatarHikariPool
+      maximum-pool-size: 100
+      minimum-idle: 10
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+
+avatar:
+  port: 14444
+  active: true
+  debug: true
+  notify: Lo
+  city-name: Lo
+  big-image-version: 30314
+  part-version: 15294
+  big-item-image-version: 17343
+  item-type-version: 2
+  item-version: 1
+  object-version: 1
+  resources-hd-path: res/hd/
+  resources-medium-path: res/medium/
+
+logging:
+  file:
+    name: logs/log4j-avatar.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1} - %m%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1} - %m%n"
+  level:
+    root: INFO
+    avatar: DEBUG
